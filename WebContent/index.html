@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<style type="text/css">
+			html,body { 
+				background: black; 
+				margin:0;
+				padding:0;
+				width:100%;
+				height:100%;
+				overflow:hidden;
+
+			}
+			
+			#controls { 
+				color: white; 
+				background: rgba(050,050,050,0.9);
+				border-radius: 5px;
+				position:absolute; 
+				padding:0.5em;
+				margin:0.5em;
+				right:0px;
+				z-index: 100;
+			}
+			#controls input { 
+				height: 2em; 
+				width: 2em ; 
+			}
+
+			#container	{
+				position: absolute;
+				width: 100%;
+				height: 100%;
+
+				-webkit-perspective: 1000px;
+				        perspective: 1000px;
+
+				-webkit-transition: -webkit-perspective 1s ease 0s;
+				        transition: 	    perspective 1s ease 0s;
+			}
+			
+			#box {
+				padding: 0em;
+				height: 100%;
+				width:  100%;
+
+				-webkit-transition: -webkit-transform 1s ease 0s;
+				        transition:         transform 1s ease 0s;
+
+				-webkit-transform-style: preserve-3d;
+				        transform-style: preserve-3d;
+			}
+
+			.side {
+				position: absolute;
+				-webkit-backface-visibility: hidden;
+				        backface-visibility: hidden;
+			}
+
+			.facet {
+				border: 1px solid white;
+				position: relative;
+				height:100%;
+				text-align: center;
+				line-height: 100px;
+
+				-webkit-backface-visibility: hidden;
+				        backface-visibility: hidden;
+			}
+
+			/* Backgrounds */
+			#box .front	{ background: hsla( 000, 100%, 50%, 0.7 ) ; }
+			#box .back	{ background: hsla( 160, 100%, 50%, 0.7 ) ; }
+			#box .right	{ background: hsla( 120, 100%, 50%, 0.7 ) ; }
+			#box .left	{ background: hsla( 180, 100%, 50%, 0.7 ) ; }
+			#box .up	  { background: hsla( 240, 100%, 50%, 0.7 ) ; }
+			#box .down  { background: hsla( 300, 100%, 50%, 0.7 ) ; }
+
+			/* Scalar Orientation Base */
+			#box .side.front {
+				-webkit-transform: rotateX(0deg) ;
+				        transform: rotateX(0deg) ;
+			}
+			#box .side.back {
+				-webkit-transform: rotateX(180deg) ;
+				        transform: rotateX(180deg) ;
+			}
+			#box .side.right {
+				-webkit-transform: rotateY(90deg) ;
+				        transform: rotateY(90deg) ;
+			}
+			#box .side.left {
+				-webkit-transform: rotateY(-90deg) ;
+				        transform: rotateY(-90deg) ;
+			}
+			#box .side.up {
+				-webkit-transform: rotateX(90deg) ;
+				        transform: rotateX(90deg) ;
+			}
+			#box .side.down {
+				-webkit-transform: rotateX(-90deg) ;
+				        transform: rotateX(-90deg) ;
+			}
+			
+			/* Dynamic Facet Subdivision */
+			#box .facet.front { }
+			#box .facet.back 	{ }
+			#box .facet.right { }
+			#box .facet.left 	{ width: 50%; }
+			#box .facet.up    { }
+			#box .facet.down  { }
+			
+			/* Scalar Orientation Viewpoints */
+			.view-f	{ 
+				-webkit-transform: translateZ(-500px) ; 
+				        transform: translateZ(-500px) ; 
+			}
+			.view-b	{ 
+				-webkit-transform: rotateY(180deg) translateZ(2000px) ; 
+				        transform: rotateY(180deg) translateZ(1000px) ; 
+			}
+			.view-r	{ 
+				-webkit-transform: scale(1) rotateY(-85deg) rotateZ(15deg) translateY(5px) ; 
+				        transform: scale(1) rotateY(-85deg) rotateZ(15deg) translateY(5px) ; 
+			}
+			.view-l	{ 
+				-webkit-transform: rotateY(90deg) translateX(500px) ; 
+				        transform: rotateY(90deg) translateX(500px) ; 
+			}
+			.view-u		{ 
+				-webkit-transform: rotateX(-90deg) translate3d(40px,800px,150px) ;
+				        transform: rotateX(-90deg) translate3d(40px,800px,150px) ;
+			}
+			.view-d{ 
+				-webkit-transform: rotateX(45deg) rotateY(45deg) translateY(500px) ; 
+				        transform: rotateX(45deg) rotateY(45deg) translateY(500px) ; 
+			}
+		</style>
+
+		<script type="text/javascript">
+			controls = document.getElementById('controls');
+			rules    = document.styleSheets[0].cssRules;
+
+			/* Dynamic CSS Rewrite */
+			function resize() {
+				w = window.innerWidth;
+				h = window.innerHeight;
+				s = w>=h?h:w;
+
+				container = document.getElementById('container');
+				container.style.width  = s + "px";
+				container.style.height = s + "px";
+				
+				// width
+				// height
+				// translate x
+				// translate y 
+				// translate z
+				xyz = [ 
+				      	{ type:".side.front", w:1, h:1, tx: 0, ty: 0, tz: 0 },
+				      	{ type:".side.back",  w:1, h:1, tx: 0, ty: 0, tz: 2 },
+				      	{ type:".side.right", w:2, h:1, tx: 1, ty: 0, tz: 0 },
+				      	{ type:".side.left",  w:2, h:1, tx:-1, ty: 0, tz: 1 },
+				      	{ type:".side.up",    w:1, h:2, tx: 0, ty:-1, tz: 1 },
+				      	{ type:".side.down",  w:1, h:2, tx: 0, ty: 1, tz: 0 },
+				      	
+				      	{ type:".view-f",      w:0, h:0, tx: 0.0, ty: 0.0, tz:-1.0 },
+				      	{ type:".view-b",      w:0, h:0, tx: 0.0, ty: 0.0, tz: 2.0 },
+				      	{ type:".view-r",      w:0, h:0, tx:-1.0, ty: 0.5, tz: 0.5 },
+				      	{ type:".view-l",      w:0, h:0, tx: 0.5, ty: 0.0, tz: 1.5 },
+				      	{ type:".view-u",      w:0, h:0, tx: 0.0, ty: 0.5, tz: 0.5 },
+				      	{ type:".view-d",      w:0, h:0, tx: 1.0, ty:-1.0, tz: 0.0 },
+				      ];
+				
+				// enumerate scalar rules
+				for(p=0; p<xyz.length; p++){
+					type = xyz[p].type;
+						//console.log(type);
+					w  = xyz[p].w;
+					h  = xyz[p].h;
+					tx = xyz[p].tx;
+					ty = xyz[p].ty;
+					tz = xyz[p].tz;
+					
+					// enumerate css rules
+					for(r=0; r<rules.length; r++){
+						rule = rules[r];
+						selectorText = rule.selectorText;
+						style = rule.style;
+						
+						// match by css selector
+						if(selectorText.search(type) >= 0){
+							
+							// overwrite w/h
+							if(typeof style.width != 'undefined'){
+									style.width = (s*w)+"px";
+							}
+							if(typeof style.height != 'undefined'){
+									style.height = (s*h)+"px";
+							}
+							
+							// browser gets
+							webkit   = typeof style.webkitTransform != 'undefined' ? 1 : 0 ;
+							standard = typeof style.transform != 'undefined' ? 1 : 0 ;
+							if(webkit || standard) {
+								// prepare new value
+								transform = webkit ? style.webkitTransform : style.transform;
+								tregex = / ?translate..?\([\-0-9\.px, ]*\)/ ;
+								replacement = 
+									" translate3d("+
+									(tx*s)+"px,"+
+									(ty*s)+"px,"+
+									(tz*s)+"px)";
+
+								// append value (onload)
+								// css transform value must contain 0-1 function instances.
+								if(transform.search(tregex) < 0){
+									replacement = transform + replacement;
+								}
+								// overwrite value (onresize)
+								else {
+									replacement = transform.replace(tregex, replacement);
+								}
+
+								// browser sets
+								if(webkit)
+									style.webkitTransform = replacement;
+								if(standard)
+									style.transform = replacement;
+							}
+						}
+					}
+				}
+			}
+			
+			/* Overwrite class to switch views. */
+			function view(name){
+				box = document.getElementById('box');
+				box.className = "view-"+name;
+			}
+		</script>
+
+	</head>
+	<body onload="resize();" onresize="resize();" >
+
+		<section id="controls">
+			Alt+Shift+
+			<input type="button" accesskey="F" onclick="view('f');" value="f" />
+			<input type="button" accesskey="B" onclick="view('b');" value="b" />
+			<input type="button" accesskey="R" onclick="view('r');" value="r" />
+			<input type="button" accesskey="L" onclick="view('l');" value="l" />
+			<input type="button" accesskey="U" onclick="view('u');" value="u" />
+			<input type="button" accesskey="D" onclick="view('d');" value="d" />
+		</section>
+
+		<section id="container" >
+			<div id="box" >
+				<div class="side front" >
+					<div class="facet front " >
+						<a href="#f2" >f2</a>
+					</div>
+				</div>
+
+				<div class="side back" >
+					<div class="facet back " >
+						<a href="#b2" >b2</a>
+					</div>
+				</div>
+
+
+				<div class="side right" >
+					<div class="facet right " >
+						<a href="#r2">r2</a>
+					</div>
+				</div>
+
+
+				<div class="side left" >
+					<div class="facet left " >
+						<a href="#l2">l2</a>
+					</div>
+				</div>
+				
+				<div class="side up" >
+					<div class="facet up " >
+						<a href="#l2" >t2</a>
+					</div>
+				</div>
+				
+
+				<div class="side down" >
+					<div class="facet down " >
+						<a href="#u2" >u2</a>
+					</div>
+				</div>
+ 
+			</div>
+		</section>
+	</body>
+</html>
